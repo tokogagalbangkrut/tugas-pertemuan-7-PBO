@@ -10,6 +10,48 @@
         </div>
     </div>
 
+    <section class="panel catalog-tools" aria-label="Pencarian dan filter buku">
+        <form class="filter-form" action="{{ route('buku.index') }}" method="GET">
+            <label class="filter-search">
+                Cari buku
+                <input type="search" name="q" value="{{ request('q') }}" placeholder="Judul, penulis, kode, atau lokasi">
+            </label>
+            <label>
+                Kategori
+                <select name="kategori">
+                    <option value="">Semua kategori</option>
+                    @foreach ($kategoriList as $kategori)
+                        <option value="{{ $kategori }}" @selected(request('kategori') === $kategori)>{{ $kategori }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label>
+                Kondisi
+                <select name="kondisi">
+                    <option value="">Semua kondisi</option>
+                    @foreach (['Baik', 'Perlu Perbaikan', 'Rusak'] as $kondisi)
+                        <option value="{{ $kondisi }}" @selected(request('kondisi') === $kondisi)>{{ $kondisi }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label>
+                Urutkan
+                <select name="sort">
+                    <option value="default" @selected(request('sort', 'default') === 'default')>Urutan awal</option>
+                    <option value="judul_asc" @selected(request('sort') === 'judul_asc')>Judul A-Z</option>
+                    <option value="judul_desc" @selected(request('sort') === 'judul_desc')>Judul Z-A</option>
+                    <option value="jumlah_desc" @selected(request('sort') === 'jumlah_desc')>Jumlah terbesar</option>
+                    <option value="jumlah_asc" @selected(request('sort') === 'jumlah_asc')>Jumlah terkecil</option>
+                </select>
+            </label>
+            <div class="filter-actions">
+                <button class="button button-primary" type="submit">Terapkan</button>
+                <a class="filter-reset" href="{{ route('buku.index') }}">Reset</a>
+                <a class="button button-secondary" href="{{ route('buku.export', request()->query()) }}">Ekspor CSV</a>
+            </div>
+        </form>
+    </section>
+
     <section class="summary-strip" aria-label="Ringkasan inventaris">
         <div class="summary-item">
             <span>Judul tercatat</span>
@@ -24,6 +66,8 @@
             <strong>{{ $perluPerhatian }}</strong>
         </div>
     </section>
+
+    <p class="results-count">Menampilkan {{ count($hasilBuku) }} dari {{ count($daftarBuku) }} buku</p>
 
     <section class="panel table-panel" aria-label="Daftar inventaris buku">
         <div class="table-scroll">
@@ -40,7 +84,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($daftarBuku as $buku)
+                    @forelse ($hasilBuku as $buku)
                         <tr>
                             <td class="code-cell" data-label="Kode">{{ $buku['kode'] }}</td>
                             <td data-label="Nama buku">
@@ -68,9 +112,15 @@
                     @empty
                         <tr>
                             <td colspan="7" class="empty-state">
-                                <strong>Belum ada buku dalam inventaris.</strong>
-                                <span>Tambahkan koleksi pertama untuk mulai mencatatnya.</span>
-                                <a class="text-action" href="{{ route('buku.create') }}">Tambah buku</a>
+                                @if (count($daftarBuku) === 0)
+                                    <strong>Belum ada buku dalam inventaris.</strong>
+                                    <span>Tambahkan koleksi pertama untuk mulai mencatatnya.</span>
+                                    <a class="text-action" href="{{ route('buku.create') }}">Tambah buku</a>
+                                @else
+                                    <strong>Tidak ada buku yang cocok.</strong>
+                                    <span>Ubah kata pencarian atau filter, lalu coba lagi.</span>
+                                    <a class="text-action" href="{{ route('buku.index') }}">Hapus filter</a>
+                                @endif
                             </td>
                         </tr>
                     @endforelse

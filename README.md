@@ -1,6 +1,6 @@
 # Ruang Baca: Inventaris Buku
 
-Aplikasi Laravel untuk mencatat koleksi buku. Data CRUD disimpan di session, bukan database.
+Aplikasi Laravel untuk mencatat koleksi buku. Data CRUD disimpan di session, bukan database. Session baru berisi 20 contoh buku populer; katalog menyediakan pencarian, filter kategori/kondisi, pengurutan, dan ekspor CSV.
 
 ## Persyaratan
 
@@ -30,8 +30,8 @@ Buka `http://127.0.0.1:8000/buku`.
 
 ## Route dan file utama
 
-- `routes/web.php`: route bernama untuk daftar, tambah, detail, edit, ubah, dan hapus buku.
-- `app/Http/Controllers/BukuController.php`: validasi form dan proses CRUD pada session.
+- `routes/web.php`: route bernama untuk CRUD dan ekspor CSV.
+- `app/Http/Controllers/BukuController.php`: validasi form, seed awal, pencarian/filter, dan CRUD pada session.
 - `resources/views/layouts/app.blade.php`: layout bersama untuk semua halaman.
 - `resources/views/buku`: halaman daftar, tambah, edit, detail, dan partial form.
 

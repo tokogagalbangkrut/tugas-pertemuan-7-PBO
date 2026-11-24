@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BukuController extends Controller
 {
@@ -19,8 +20,50 @@ class BukuController extends Controller
             $daftarBuku,
             fn (array $buku): bool => $buku['kondisi'] !== 'Baik'
         ));
+        $hasilBuku = $this->filterDaftarBuku($request, $daftarBuku);
+        $kategoriList = array_values(array_unique(array_column($daftarBuku, 'kategori')));
+        sort($kategoriList, SORT_NATURAL | SORT_FLAG_CASE);
 
-        return view('buku.index', compact('daftarBuku', 'totalEksemplar', 'perluPerhatian'));
+        return view('buku.index', compact(
+            'daftarBuku',
+            'hasilBuku',
+            'kategoriList',
+            'totalEksemplar',
+            'perluPerhatian'
+        ));
+    }
+
+    public function catalog(Request $request): View
+    {
+        $daftarBuku = $this->daftarBuku($request);
+        $hasilBuku = $this->filterDaftarBuku($request, $daftarBuku);
+        $kategoriList = array_values(array_unique(array_column($daftarBuku, 'kategori')));
+        sort($kategoriList, SORT_NATURAL | SORT_FLAG_CASE);
+
+        $coverIds = [
+            'BK-001' => 7079796,
+            'BK-002' => 15218349,
+            'BK-003' => 9986435,
+            'BK-004' => 6643692,
+            'BK-005' => 14303993,
+            'BK-006' => 9904402,
+            'BK-014' => 10648285,
+            'BK-015' => 13903116,
+            'BK-016' => 4317176,
+            'BK-017' => 15255806,
+            'BK-018' => 12539702,
+        ];
+
+        $hasilBuku = array_map(function (array $buku) use ($coverIds): array {
+            $coverId = $coverIds[$buku['kode']] ?? null;
+            $buku['cover_url'] = $coverId
+                ? "https://covers.openlibrary.org/b/id/{$coverId}-M.jpg"
+                : null;
+
+            return $buku;
+        }, $hasilBuku);
+
+        return view('buku.catalog', compact('hasilBuku', 'kategoriList'));
     }
 
     public function create(Request $request): View
@@ -52,6 +95,34 @@ class BukuController extends Controller
         $request->session()->put('daftarBuku', $daftarBuku);
 
         return redirect()->route('buku.index')->with('status', 'Buku berhasil ditambahkan.');
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $daftarBuku = $this->filterDaftarBuku($request, $this->daftarBuku($request));
+
+        return response()->streamDownload(function () use ($daftarBuku): void {
+            $file = fopen('php://output', 'w');
+            fwrite($file, "\xEF\xBB\xBF");
+            fputcsv($file, ['Kode', 'Judul', 'Penulis', 'Kategori', 'Lokasi', 'Jumlah', 'Kondisi', 'Deskripsi'], ',', '"', '');
+
+            foreach ($daftarBuku as $buku) {
+                $baris = [
+                    $buku['kode'] ?? '',
+                    $buku['judul'] ?? '',
+                    $buku['penulis'] ?? '',
+                    $buku['kategori'] ?? '',
+                    $buku['lokasi'] ?? '',
+                    $buku['jumlah'] ?? '',
+                    $buku['kondisi'] ?? '',
+                    $buku['deskripsi'] ?? '',
+                ];
+
+                fputcsv($file, array_map($this->safeCsvValue(...), $baris), ',', '"', '');
+            }
+
+            fclose($file);
+        }, 'inventaris-buku.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function show(Request $request, string $kode): View|RedirectResponse
@@ -119,6 +190,58 @@ class BukuController extends Controller
     private function findBuku(Request $request, string $kode): ?array
     {
         return $this->daftarBuku($request)[$kode] ?? null;
+    }
+
+    private function filterDaftarBuku(Request $request, array $daftarBuku): array
+    {
+        $query = $this->queryString($request, 'q');
+        $kategori = $this->queryString($request, 'kategori');
+        $kondisi = $this->queryString($request, 'kondisi');
+        $sort = $this->queryString($request, 'sort');
+
+        $hasil = array_filter($daftarBuku, function (array $buku) use ($query, $kategori, $kondisi): bool {
+            $teksBuku = implode(' ', [
+                $buku['kode'],
+                $buku['judul'],
+                $buku['penulis'] ?? '',
+                $buku['kategori'],
+                $buku['lokasi'],
+            ]);
+
+            return ($query === '' || mb_stripos($teksBuku, $query) !== false)
+                && ($kategori === '' || $buku['kategori'] === $kategori)
+                && ($kondisi === '' || $buku['kondisi'] === $kondisi);
+        });
+
+        if ($sort !== 'default') {
+            usort($hasil, function (array $bukuA, array $bukuB) use ($sort): int {
+                $perbandingan = match ($sort) {
+                    'judul_asc' => strcasecmp($bukuA['judul'], $bukuB['judul']),
+                    'judul_desc' => strcasecmp($bukuB['judul'], $bukuA['judul']),
+                    'jumlah_asc' => (int) $bukuA['jumlah'] <=> (int) $bukuB['jumlah'],
+                    'jumlah_desc' => (int) $bukuB['jumlah'] <=> (int) $bukuA['jumlah'],
+                    default => 0,
+                };
+
+                return $perbandingan ?: strcasecmp($bukuA['kode'], $bukuB['kode']);
+            });
+        }
+
+        return array_values($hasil);
+    }
+
+    private function queryString(Request $request, string $key): string
+    {
+        $value = $request->query($key);
+
+        return is_string($value) ? trim($value) : '';
+    }
+
+    private function safeCsvValue(mixed $value): string
+    {
+        $value = (string) $value;
+
+        return preg_match('/^\s*[=+\-@]/u', $value) === 1 ? "'".$value : $value;
     }
 
     private function daftarBuku(Request $request): array
