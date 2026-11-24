@@ -1,89 +1,81 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar Buku Top 10 Indonesia</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f6f9;
-            color: #333;
-            margin: 0;
-            padding: 30px;
-        }
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 25px 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #2c3e50;
-            margin-top: 0;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-        }
-        .buku-card {
-            border: 1px solid #e2e8f0;
-            border-left: 5px solid #3498db;
-            padding: 15px 20px;
-            margin-bottom: 15px;
-            border-radius: 4px;
-            background-color: #fff;
-            transition: transform 0.2s;
-        }
-        .buku-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-        }
-        .buku-card h3 {
-            margin: 0 0 8px 0;
-        }
-        .buku-card h3 a {
-            text-decoration: none;
-            color: #2980b9;
-        }
-        .buku-card h3 a:hover {
-            text-decoration: underline;
-        }
-        .penulis {
-            font-size: 0.9em;
-            color: #7f8c8d;
-            margin-bottom: 10px;
-            font-style: italic;
-        }
-        .deskripsi {
-            margin: 0 0 10px 0;
-            line-height: 1.5;
-        }
-        .meta {
-            font-size: 0.8em;
-            color: #95a5a6;
-        }
-    </style>
-</head>
-<body>
+@extends('layouts.app')
 
-    <div class="container">
-        <h1>Top 10 Buku Populer di Indonesia</h1>
-        <p>Menampilkan total <strong>{{ count($daftarBuku) }}</strong> koleksi buku populer:</p>
+@section('title', 'Daftar buku')
 
-        @foreach ($daftarBuku as $buku)
-            <div class="buku-card">
-                <h3>
-                    <a href="{{ route('buku.show', $buku['id']) }}">
-                        {{ $loop->iteration }}. {{ $buku['judul'] }}
-                    </a>
-                </h3>
-                <div class="penulis">Penulis: {{ $buku['penulis'] }}</div>
-                <p class="deskripsi">{{ $buku['deskripsi'] }}</p>
-                <div class="meta">ID Sistem: {{ $buku['id'] }}</div>
-            </div>
-        @endforeach
+@section('content')
+    <div class="page-heading">
+        <div>
+            <h1>Kumpulan Buku Populer</h1>
+            <p class="page-intro">20 pilihan buku populer dan best seller yang dikenal pembaca Indonesia.</p>
+        </div>
     </div>
 
-</body>
-</html>
+    <section class="summary-strip" aria-label="Ringkasan inventaris">
+        <div class="summary-item">
+            <span>Judul tercatat</span>
+            <strong>{{ count($daftarBuku) }}</strong>
+        </div>
+        <div class="summary-item">
+            <span>Total eksemplar</span>
+            <strong>{{ $totalEksemplar }}</strong>
+        </div>
+        <div class="summary-item">
+            <span>Perlu perhatian</span>
+            <strong>{{ $perluPerhatian }}</strong>
+        </div>
+    </section>
+
+    <section class="panel table-panel" aria-label="Daftar inventaris buku">
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Kode</th>
+                        <th>Nama buku</th>
+                        <th>Kategori</th>
+                        <th>Lokasi</th>
+                        <th>Jumlah</th>
+                        <th>Kondisi</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($daftarBuku as $buku)
+                        <tr>
+                            <td class="code-cell" data-label="Kode">{{ $buku['kode'] }}</td>
+                            <td data-label="Nama buku">
+                                <strong>{{ $buku['judul'] }}</strong>
+                                @if (! empty($buku['penulis']))
+                                    <small class="table-subtext">{{ $buku['penulis'] }}</small>
+                                @endif
+                            </td>
+                            <td data-label="Kategori">{{ $buku['kategori'] }}</td>
+                            <td data-label="Lokasi">{{ $buku['lokasi'] }}</td>
+                            <td data-label="Jumlah">{{ $buku['jumlah'] }}</td>
+                            <td data-label="Kondisi"><span class="condition condition-{{ str($buku['kondisi'])->slug() }}">{{ $buku['kondisi'] }}</span></td>
+                            <td data-label="Aksi">
+                                <div class="row-actions">
+                                    <a class="text-action" href="{{ route('buku.show', ['kode' => $buku['kode']]) }}">Detail</a>
+                                    <a class="text-action" href="{{ route('buku.edit', ['kode' => $buku['kode']]) }}">Edit</a>
+                                    <form action="{{ route('buku.destroy', ['kode' => $buku['kode']]) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus buku ini?')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="text-action text-danger" type="submit">Hapus</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <strong>Belum ada buku dalam inventaris.</strong>
+                                <span>Tambahkan koleksi pertama untuk mulai mencatatnya.</span>
+                                <a class="text-action" href="{{ route('buku.create') }}">Tambah buku</a>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+@endsection
